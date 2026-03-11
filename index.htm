@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoidShred DAW Pro - Multi-Genre Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #080808; color: #e5e5e5; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .amplifier-panel { 
+            background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+            border: 4px solid #111;
+            box-shadow: inset 0 0 50px rgba(0,0,0,1);
+        }
+        .grid-cell { 
+            width: 20px; 
+            height: 20px; 
+            border: 1px solid #1a1a1a; 
+            transition: all 0.1s;
+            cursor: pointer;
+        }
+        .grid-cell.active { background: #dc2626; box-shadow: 0 0 8px #ef4444; border-color: #f87171; }
+        .grid-cell:hover { border-color: #555; background: #222; }
+        .grid-cell.active:hover { background: #ef4444; }
+        .timeline-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #444 #080808;
+        }
+        .current-step { background: rgba(255, 255, 255, 0.15); border-left: 1px solid #fff; border-right: 1px solid #fff; }
+        .inst-label { width: 140px; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #71717a; flex-shrink: 0; }
+        .section-header { border-bottom: 1px solid #27272a; padding-bottom: 4px; margin-top: 12px; margin-bottom: 8px; font-size: 10px; color: #a1a1aa; letter-spacing: 0.1em; }
+        .preset-card:hover { border-color: #dc2626; color: #fff; background: rgba(220, 38, 38, 0.1); }
+        .preset-card.active { border-color: #dc2626; color: #fff; background: rgba(220, 38, 38, 0.2); }
+    </style>
+</head>
+<body class="p-4 md:p-6 min-h-screen flex flex-col text-zinc-300">
+
+    <div class="max-w-[1700px] mx-auto w-full flex flex-col lg:flex-row gap-6">
+        
+        <!-- Sidebar: Presets -->
+        <aside class="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
+            <div class="amplifier-panel p-5 rounded-2xl border-2 border-zinc-800 flex flex-col h-[80vh]">
+                <h2 class="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+                    Biblioteca de Estilos
+                </h2>
+                <div class="flex flex-col gap-2 overflow-y-auto pr-2 timeline-scroll" id="preset-list">
+                    <!-- Presets serão inseridos aqui -->
+                </div>
+            </div>
+            
+            <div class="bg-zinc-900/30 p-4 rounded-xl border border-zinc-800 text-[10px] text-zinc-500 italic">
+                Explore as predefinições de Metal, Pop, Rock e Eletrônica para iniciar sua composição.
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-grow flex flex-col gap-6">
+            <div class="amplifier-panel p-6 rounded-2xl border-2 border-zinc-800">
+                <!-- Header -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <div>
+                        <h1 class="text-2xl font-black italic tracking-tighter text-zinc-300">VOID<span class="text-red-600">SHRED</span> PRO</h1>
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Multi-Genre Creative Station</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 bg-black/40 p-3 rounded-lg border border-zinc-800">
+                        <div class="flex flex-col">
+                            <label class="text-[8px] text-zinc-500 uppercase font-bold">Compassos</label>
+                            <input type="number" id="bars-input" value="4" min="1" max="16" class="bg-transparent text-white font-black w-10 outline-none text-sm">
+                        </div>
+                        <div class="h-8 w-[1px] bg-zinc-800"></div>
+                        <div class="flex flex-col">
+                            <label class="text-[8px] text-zinc-500 uppercase font-bold">BPM</label>
+                            <input type="number" id="bpm-input" value="132" min="40" max="220" class="bg-transparent text-white font-black w-12 outline-none text-sm">
+                        </div>
+                        <div class="h-8 w-[1px] bg-zinc-800"></div>
+                        <button id="igniteBtn" class="px-6 py-2 bg-red-700 hover:bg-red-600 text-white rounded font-black uppercase text-[10px] transition-all transform active:scale-95 shadow-lg shadow-red-900/20">Play / Stop</button>
+                        <button id="exportBtn" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded font-black uppercase text-[10px] transition-all">Exportar .WAV</button>
+                    </div>
+                </div>
+
+                <!-- Sequencer Grid -->
+                <div class="timeline-scroll overflow-x-auto bg-black/80 p-4 rounded-xl border border-zinc-900 mb-6 shadow-inner max-h-[60vh] overflow-y-auto">
+                    <div id="sequencer-grid" class="inline-grid gap-y-1">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+                <div id="export-status" class="hidden mb-4 p-3 bg-red-900/20 border border-red-900/50 rounded text-red-500 text-[10px] font-mono italic animate-pulse">
+                    Renderizando mixagem final... Aguarde o download.
+                </div>
+
+                <!-- Footer / Legend -->
+                <div class="flex flex-wrap items-center gap-6 text-[9px] uppercase font-black text-zinc-600 border-t border-zinc-800 pt-4">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-600 rounded-sm"></div> Ativo</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-zinc-800 border border-zinc-700 rounded-sm"></div> Inativo</div>
+                    <div class="ml-auto text-zinc-500 flex items-center gap-2">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"></path></svg>
+                        Multi-instrumentos ativados • Use o BPM para ajustar a velocidade
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let audioCtx, masterGain;
+        let isPlaying = false;
+        let nextNoteTime = 0;
+        let currentStep = 0;
+        const scheduleAheadTime = 0.1;
+        
+        const instruments = [
+            // Bateria (Rhythm Section)
+            { id: 'kick', name: 'Kick (EDM/Rock)', group: 'Bateria' },
+            { id: 'snare', name: 'Snare (Sharp)', group: 'Bateria' },
+            { id: 'clap', name: 'Hand Clap', group: 'Bateria' },
+            { id: 'hh', name: 'Hi-Hat (Closed)', group: 'Bateria' },
+            { id: 'hho', name: 'Hi-Hat (Open)', group: 'Bateria' },
+            { id: 'ride', name: 'Ride Cymbal', group: 'Bateria' },
+            { id: 'crash', name: 'Crash Cymbal', group: 'Bateria' },
+            { id: 'tomH', name: 'Tom High', group: 'Bateria' },
+            { id: 'tomL', name: 'Tom Floor', group: 'Bateria' },
+            // Baixo
+            { id: 'bass', name: 'Sub Bass', group: 'Baixo' },
+            { id: 'bassH', name: 'Heavy Bass', group: 'Baixo' },
+            // Melódicos / Harmônicos
+            { id: 'gtrRiff', name: 'Guitarra Riff', group: 'Cordas' },
+            { id: 'gtrLead', name: 'Guitarra Solo', group: 'Cordas' },
+            { id: 'piano', name: 'Electric Piano', group: 'Teclados' },
+            { id: 'synthPad', name: 'Ambient Pad', group: 'Sintetizadores' },
+            { id: 'synthLead', name: 'Techno Lead', group: 'Sintetizadores' },
+            { id: 'noise', name: 'FX Noise Sweep', group: 'Efeitos' }
+        ];
+
+        const presets = [
+            {
+                name: "Heavy Metal Core",
+                description: "Ritmo agressivo com bumbo duplo.",
+                bars: 2, bpm: 160,
+                data: {
+                    kick: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+                    snare: [4, 12, 20, 28],
+                    hh: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+                    gtrRiff: [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 17, 18, 19, 24, 28],
+                    bassH: [0, 8, 16, 24]
+                }
+            },
+            {
+                name: "Techno Rave",
+                description: "Batida 4/4 industrial eletrónica.",
+                bars: 2, bpm: 128,
+                data: {
+                    kick: [0, 4, 8, 12, 16, 20, 24, 28],
+                    clap: [4, 12, 20, 28],
+                    hh: [2, 6, 10, 14, 18, 22, 26, 30],
+                    synthLead: [0, 2, 3, 8, 10, 11, 16, 18, 19, 24, 26, 27],
+                    noise: [0, 16]
+                }
+            },
+            {
+                name: "Pop Moderno",
+                description: "Groove suave e piano elétrico.",
+                bars: 4, bpm: 100,
+                data: {
+                    kick: [0, 10, 16, 26],
+                    snare: [4, 12, 20, 28, 36, 44, 52, 60],
+                    hh: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+                    piano: [0, 8, 16, 24, 32, 40, 48, 56],
+                    bass: [0, 4, 10, 16, 20, 26, 32]
+                }
+            },
+            {
+                name: "Rock n' Roll Clássico",
+                description: "Swing básico de blues rock.",
+                bars: 2, bpm: 120,
+                data: {
+                    kick: [0, 8, 16, 24],
+                    snare: [4, 12, 20, 28],
+                    hh: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+                    gtrRiff: [0, 3, 6, 8, 11, 14, 16, 19, 22, 24, 27, 30],
+                    bassH: [0, 4, 8, 12, 16, 20, 24, 28]
+                }
+            },
+            {
+                name: "Chill Lo-Fi",
+                description: "Ambiental, lento e relaxante.",
+                bars: 4, bpm: 80,
+                data: {
+                    kick: [0, 20, 32, 52],
+                    snare: [8, 24, 40, 56],
+                    hho: [4, 12, 20, 28, 36, 44, 52, 60],
+                    synthPad: [0, 16, 32, 48],
+                    piano: [4, 12, 20, 28, 36, 44, 52, 60]
+                }
+            },
+            {
+                name: "Death Metal Blast",
+                description: "Velocidade máxima e brutalidade.",
+                bars: 2, bpm: 200,
+                data: {
+                    kick: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+                    snare: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+                    crash: [0, 8, 16, 24],
+                    gtrRiff: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+                }
+            }
+        ];
+
+        let totalSteps = 64; 
+        let sequenceData = {};
+
+        function resetSequence() {
+            instruments.forEach(inst => {
+                sequenceData[inst.id] = new Array(totalSteps).fill(false);
+            });
+        }
+
+        function createPresetList() {
+            const container = document.getElementById('preset-list');
+            presets.forEach((preset, index) => {
+                const card = document.createElement('button');
+                card.className = "preset-card w-full text-left p-3 rounded-xl border border-zinc-800 transition-all duration-200 group";
+                card.innerHTML = `
+                    <div class="text-[10px] font-black uppercase tracking-tight group-hover:text-red-500 transition-colors">${preset.name}</div>
+                    <div class="text-[8px] text-zinc-500 mt-1 leading-tight">${preset.description}</div>
+                    <div class="text-[7px] text-red-900 font-bold mt-1 uppercase">${preset.bpm} BPM</div>
+                `;
+                card.onclick = () => loadPreset(index);
+                container.appendChild(card);
+            });
+        }
+
+        function loadPreset(index) {
+            const preset = presets[index];
+            document.getElementById('bars-input').value = preset.bars;
+            document.getElementById('bpm-input').value = preset.bpm;
+            createGrid(); 
+            
+            resetSequence();
+            
+            for (const instId in preset.data) {
+                if (sequenceData[instId]) {
+                    preset.data[instId].forEach(step => {
+                        if (step < totalSteps) sequenceData[instId][step] = true;
+                    });
+                }
+            }
+            
+            renderActiveCells();
+
+            document.querySelectorAll('.preset-card').forEach((c, i) => {
+                i === index ? c.classList.add('active') : c.classList.remove('active');
+            });
+        }
+
+        function renderActiveCells() {
+            const cells = document.querySelectorAll('.grid-cell');
+            cells.forEach(cell => {
+                const inst = cell.dataset.inst;
+                const step = parseInt(cell.dataset.step);
+                sequenceData[inst][step] ? cell.classList.add('active') : cell.classList.remove('active');
+            });
+        }
+
+        function createGrid() {
+            const grid = document.getElementById('sequencer-grid');
+            const bars = parseInt(document.getElementById('bars-input').value);
+            totalSteps = bars * 16;
+            
+            instruments.forEach(inst => {
+                const oldData = sequenceData[inst.id] || [];
+                sequenceData[inst.id] = new Array(totalSteps).fill(false);
+                for(let i=0; i < Math.min(oldData.length, totalSteps); i++) {
+                    sequenceData[inst.id][i] = oldData[i];
+                }
+            });
+
+            grid.style.gridTemplateColumns = `140px repeat(${totalSteps}, 20px)`;
+            grid.innerHTML = '';
+
+            let lastGroup = "";
+            instruments.forEach(inst => {
+                if (inst.group !== lastGroup) {
+                    const header = document.createElement('div');
+                    header.className = "col-span-full section-header";
+                    header.innerText = inst.group;
+                    grid.appendChild(header);
+                    lastGroup = inst.group;
+                }
+
+                const label = document.createElement('div');
+                label.className = "inst-label flex items-center pr-4";
+                label.innerText = inst.name;
+                grid.appendChild(label);
+
+                for(let i=0; i<totalSteps; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = `grid-cell ${sequenceData[inst.id][i] ? 'active' : ''} step-${i}`;
+                    cell.dataset.inst = inst.id;
+                    cell.dataset.step = i;
+                    cell.onclick = () => {
+                        sequenceData[inst.id][i] = !sequenceData[inst.id][i];
+                        cell.classList.toggle('active');
+                    };
+                    grid.appendChild(cell);
+                }
+            });
+        }
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = setupAudioChain(audioCtx, audioCtx.destination);
+        }
+
+        function setupAudioChain(ctx, destination) {
+            const g = ctx.createGain();
+            g.gain.value = 0.6;
+            const comp = ctx.createDynamicsCompressor();
+            comp.threshold.value = -10;
+            comp.ratio.value = 8;
+            g.connect(comp); comp.connect(destination);
+            return g;
+        }
+
+        // --- Motores de Áudio Especializados ---
+
+        function playGtr(ctx, dest, freq, time, dur, mode='riff') {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            const sh = ctx.createWaveShaper();
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(freq, time);
+            
+            const curve = new Float32Array(44100);
+            const intensity = mode === 'lead' ? 200 : 120;
+            for(let i=0; i<44100; i++) {
+                let x = (i*2)/44100-1;
+                curve[i] = (Math.PI + intensity) * x / (Math.PI + intensity * Math.abs(x));
+            }
+            sh.curve = curve;
+            const f = ctx.createBiquadFilter(); f.frequency.value = mode === 'lead' ? 3500 : 2000;
+            g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.2, time + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            o.connect(sh); sh.connect(f); f.connect(g); g.connect(dest);
+            o.start(time); o.stop(time+dur);
+        }
+
+        function playSynth(ctx, dest, freq, time, dur, type='square') {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            const f = ctx.createBiquadFilter();
+            o.type = type; o.frequency.setValueAtTime(freq, time);
+            f.type = "lowpass"; f.frequency.setValueAtTime(200, time);
+            f.frequency.exponentialRampToValueAtTime(2000, time + 0.1);
+            g.gain.setValueAtTime(0.15, time); g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            o.connect(f); f.connect(g); g.connect(dest);
+            o.start(time); o.stop(time+dur);
+        }
+
+        function playPiano(ctx, dest, freq, time, dur) {
+            const o1 = ctx.createOscillator(); const o2 = ctx.createOscillator();
+            const g = ctx.createGain();
+            o1.type = 'sine'; o2.type = 'triangle';
+            o1.frequency.setValueAtTime(freq, time); o2.frequency.setValueAtTime(freq * 1.005, time);
+            g.gain.setValueAtTime(0.3, time); g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            o1.connect(g); o2.connect(g); g.connect(dest);
+            o1.start(time); o2.start(time); o1.stop(time+dur); o2.stop(time+dur);
+        }
+
+        function playDrum(ctx, dest, type, time) {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            
+            if (type === 'kick') {
+                o.frequency.setValueAtTime(120, time);
+                o.frequency.exponentialRampToValueAtTime(30, time + 0.2);
+                g.gain.setValueAtTime(1.2, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+                o.connect(g); g.connect(dest); o.start(time); o.stop(time+0.4);
+            } else if (type === 'snare' || type === 'clap') {
+                const n = ctx.createBufferSource();
+                const b = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
+                const d = b.getChannelData(0);
+                for(let i=0; i<d.length; i++) d[i] = Math.random()*2-1;
+                n.buffer = b;
+                const flt = ctx.createBiquadFilter(); flt.frequency.value = type === 'snare' ? 1200 : 2000;
+                g.gain.setValueAtTime(0.6, time); g.gain.exponentialRampToValueAtTime(0.001, time + (type==='clap'?0.1:0.2));
+                n.connect(flt); flt.connect(g); g.connect(dest); n.start(time);
+            } else if (['hh','hho','ride','crash'].includes(type)) {
+                const n = ctx.createBufferSource();
+                const dur = type === 'crash' ? 2.5 : (type === 'hho' ? 0.4 : 0.08);
+                const b = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+                const d = b.getChannelData(0);
+                for(let i=0; i<d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(dur * 8000));
+                n.buffer = b;
+                const flt = ctx.createBiquadFilter(); flt.type = "highpass"; flt.frequency.value = 6000;
+                g.gain.setValueAtTime(0.15, time); g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+                n.connect(flt); flt.connect(g); g.connect(dest); n.start(time);
+            } else if (type.startsWith('tom')) {
+                o.frequency.setValueAtTime(type === 'tomH' ? 180 : 90, time);
+                o.frequency.exponentialRampToValueAtTime(40, time + 0.2);
+                g.gain.setValueAtTime(0.8, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+                o.connect(g); g.connect(dest); o.start(time); o.stop(time+0.4);
+            }
+        }
+
+        // --- Loop Principal ---
+
+        function runStep(ctx, dest, step, time) {
+            const bpm = parseInt(document.getElementById('bpm-input').value);
+            const stepLen = 60 / bpm / 4;
+            const rootFreq = 440 * Math.pow(2, (40 - 69) / 12); // E2
+
+            if (sequenceData.kick[step]) playDrum(ctx, dest, 'kick', time);
+            if (sequenceData.snare[step]) playDrum(ctx, dest, 'snare', time);
+            if (sequenceData.clap[step]) playDrum(ctx, dest, 'clap', time);
+            if (sequenceData.hh[step]) playDrum(ctx, dest, 'hh', time);
+            if (sequenceData.hho[step]) playDrum(ctx, dest, 'hho', time);
+            if (sequenceData.crash[step]) playDrum(ctx, dest, 'crash', time);
+            if (sequenceData.tomH[step]) playDrum(ctx, dest, 'tomH', time);
+            if (sequenceData.tomL[step]) playDrum(ctx, dest, 'tomL', time);
+
+            if (sequenceData.gtrRiff[step]) playGtr(ctx, dest, rootFreq, time, stepLen * 3, 'riff');
+            if (sequenceData.gtrLead[step]) playGtr(ctx, dest, rootFreq * 2, time, stepLen * 4, 'lead');
+            
+            if (sequenceData.bass[step]) playSynth(ctx, dest, rootFreq / 2, time, 0.4, 'sine');
+            if (sequenceData.bassH[step]) playSynth(ctx, dest, rootFreq / 2, time, 0.4, 'sawtooth');
+            
+            if (sequenceData.piano[step]) playPiano(ctx, dest, rootFreq * 2, time, 0.8);
+            if (sequenceData.synthPad[step]) playSynth(ctx, dest, rootFreq * 1.5, time, 2.0, 'triangle');
+            if (sequenceData.synthLead[step]) playSynth(ctx, dest, rootFreq * 4, time, 0.3, 'square');
+            
+            if (sequenceData.noise[step]) {
+                const n = ctx.createBufferSource();
+                const b = ctx.createBuffer(1, ctx.sampleRate * 1, ctx.sampleRate);
+                const d = b.getChannelData(0);
+                for(let i=0; i<d.length; i++) d[i] = (Math.random()*2-1);
+                n.buffer = b;
+                const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.setValueAtTime(100, time);
+                f.frequency.exponentialRampToValueAtTime(8000, time + 0.8);
+                const g = ctx.createGain(); g.gain.setValueAtTime(0.1, time);
+                g.gain.exponentialRampToValueAtTime(0.001, time + 1);
+                n.connect(f); f.connect(g); g.connect(dest); n.start(time);
+            }
+        }
+
+        function scheduler() {
+            const bpm = parseInt(document.getElementById('bpm-input').value);
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                runStep(audioCtx, masterGain, currentStep, nextNoteTime);
+                const prev = (currentStep - 1 + totalSteps) % totalSteps;
+                document.querySelectorAll(`.step-${prev}`).forEach(el => el.classList.remove('current-step'));
+                document.querySelectorAll(`.step-${currentStep}`).forEach(el => el.classList.add('current-step'));
+                nextNoteTime += 60 / bpm / 4;
+                currentStep = (currentStep + 1) % totalSteps;
+            }
+            if (isPlaying) setTimeout(scheduler, 25);
+        }
+
+        async function exportProject() {
+            const status = document.getElementById('export-status');
+            const bpm = parseInt(document.getElementById('bpm-input').value);
+            status.classList.remove('hidden'); 
+            
+            const sampleRate = 44100;
+            const stepLen = 60 / bpm / 4;
+            const totalDuration = totalSteps * stepLen;
+            const offlineCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * totalDuration), sampleRate);
+            const dest = setupAudioChain(offlineCtx, offlineCtx.destination);
+
+            for(let s = 0; s < totalSteps; s++) {
+                runStep(offlineCtx, dest, s, s * stepLen);
+            }
+
+            const buffer = await offlineCtx.startRendering();
+            const wavBlob = bufferToWav(buffer);
+            const url = URL.createObjectURL(wavBlob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'voidshred_master.wav'; a.click();
+            status.classList.add('hidden');
+        }
+
+        function bufferToWav(abuffer) {
+            let numOfChan = abuffer.numberOfChannels, length = abuffer.length * numOfChan * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], i, sample, offset = 0, pos = 0;
+            const setUint16 = (d) => { view.setUint16(pos, d, true); pos += 2; };
+            const setUint32 = (d) => { view.setUint32(pos, d, true); pos += 4; };
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+            for(i=0; i<numOfChan; i++) channels.push(abuffer.getChannelData(i));
+            while(pos < length) {
+                for(i=0; i<numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF) | 0;
+                    view.setInt16(pos, sample, true); pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([buffer], {type: "audio/wav"});
+        }
+
+        document.getElementById('igniteBtn').onclick = function() {
+            initAudio();
+            if (isPlaying) {
+                isPlaying = false; audioCtx.suspend();
+                document.querySelectorAll('.current-step').forEach(el => el.classList.remove('current-step'));
+            } else {
+                isPlaying = true; currentStep = 0;
+                nextNoteTime = audioCtx.currentTime + 0.1;
+                audioCtx.resume(); scheduler();
+            }
+        };
+
+        document.getElementById('bars-input').onchange = createGrid;
+        document.getElementById('exportBtn').onclick = exportProject;
+
+        createPresetList();
+        resetSequence();
+        createGrid();
+    </script>
+</body>
+</html>
