@@ -126,6 +126,31 @@
         let nextNoteTime = 0;
         let currentStep = 0;
         const scheduleAheadTime = 0.1;
+
+        // Caching for performance
+        const curves = {};
+        const noiseBuffers = {};
+
+        function getDistortionCurve(intensity) {
+            if (curves[intensity]) return curves[intensity];
+            const curve = new Float32Array(44100);
+            for (let i = 0; i < 44100; i++) {
+                let x = (i * 2) / 44100 - 1;
+                curve[i] = (Math.PI + intensity) * x / (Math.PI + intensity * Math.abs(x));
+            }
+            curves[intensity] = curve;
+            return curve;
+        }
+
+        function getNoiseBuffer(ctx, duration) {
+            const key = `${ctx.sampleRate}-${duration}`;
+            if (noiseBuffers[key]) return noiseBuffers[key];
+            const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+            noiseBuffers[key] = buffer;
+            return buffer;
+        }
         
         const instruments = [
             // Bateria (Rhythm Section)
@@ -232,6 +257,7 @@
 
         let totalSteps = 64; 
         let sequenceData = {};
+        let stepDOMCache = [];
 
         function resetSequence() {
             instruments.forEach(inst => {
@@ -312,6 +338,7 @@
             const grid = document.getElementById('sequencer-grid');
             const steps = parseInt(document.getElementById('steps-input').value);
             totalSteps = steps;
+            stepDOMCache = Array.from({ length: totalSteps }, () => []);
             
             instruments.forEach(inst => {
                 const oldData = sequenceData[inst.id] || [];
@@ -322,7 +349,7 @@
             });
 
             grid.style.gridTemplateColumns = `140px repeat(${totalSteps}, 20px)`;
-            grid.innerHTML = '';
+            const fragment = document.createDocumentFragment();
 
             let lastGroup = "";
             instruments.forEach(inst => {
@@ -330,14 +357,14 @@
                     const header = document.createElement('div');
                     header.className = "col-span-full section-header";
                     header.innerText = inst.group;
-                    grid.appendChild(header);
+                    fragment.appendChild(header);
                     lastGroup = inst.group;
                 }
 
                 const label = document.createElement('div');
                 label.className = "inst-label flex items-center pr-4";
                 label.innerText = inst.name;
-                grid.appendChild(label);
+                fragment.appendChild(label);
 
                 for(let i=0; i<totalSteps; i++) {
                     const cell = document.createElement('div');
@@ -348,9 +375,12 @@
                         sequenceData[inst.id][i] = !sequenceData[inst.id][i];
                         cell.classList.toggle('active');
                     };
-                    grid.appendChild(cell);
+                    fragment.appendChild(cell);
+                    stepDOMCache[i].push(cell);
                 }
             });
+            grid.innerHTML = '';
+            grid.appendChild(fragment);
         }
 
         function initAudio() {
@@ -377,13 +407,8 @@
             const sh = ctx.createWaveShaper();
             o.type = 'sawtooth'; o.frequency.setValueAtTime(freq, time);
             
-            const curve = new Float32Array(44100);
             const intensity = mode === 'lead' ? 200 : 120;
-            for(let i=0; i<44100; i++) {
-                let x = (i*2)/44100-1;
-                curve[i] = (Math.PI + intensity) * x / (Math.PI + intensity * Math.abs(x));
-            }
-            sh.curve = curve;
+            sh.curve = getDistortionCurve(intensity);
             const f = ctx.createBiquadFilter(); f.frequency.value = mode === 'lead' ? 3500 : 2000;
             g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.2, time + 0.01);
             g.gain.exponentialRampToValueAtTime(0.001, time + dur);
@@ -424,10 +449,7 @@
                 o.connect(g); g.connect(dest); o.start(time); o.stop(time+0.4);
             } else if (type === 'snare' || type === 'clap') {
                 const n = ctx.createBufferSource();
-                const b = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
-                const d = b.getChannelData(0);
-                for(let i=0; i<d.length; i++) d[i] = Math.random()*2-1;
-                n.buffer = b;
+                n.buffer = getNoiseBuffer(ctx, 0.2);
                 const flt = ctx.createBiquadFilter(); flt.frequency.value = type === 'snare' ? 1200 : 2000;
                 g.gain.setValueAtTime(0.6, time); g.gain.exponentialRampToValueAtTime(0.001, time + (type==='clap'?0.1:0.2));
                 n.connect(flt); flt.connect(g); g.connect(dest); n.start(time);
@@ -477,10 +499,7 @@
             
             if (sequenceData.noise[step]) {
                 const n = ctx.createBufferSource();
-                const b = ctx.createBuffer(1, ctx.sampleRate * 1, ctx.sampleRate);
-                const d = b.getChannelData(0);
-                for(let i=0; i<d.length; i++) d[i] = (Math.random()*2-1);
-                n.buffer = b;
+                n.buffer = getNoiseBuffer(ctx, 1.0);
                 const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.setValueAtTime(100, time);
                 f.frequency.exponentialRampToValueAtTime(8000, time + 0.8);
                 const g = ctx.createGain(); g.gain.setValueAtTime(0.1, time);
@@ -494,8 +513,11 @@
             while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
                 runStep(audioCtx, masterGain, currentStep, nextNoteTime);
                 const prev = (currentStep - 1 + totalSteps) % totalSteps;
-                document.querySelectorAll(`.step-${prev}`).forEach(el => el.classList.remove('current-step'));
-                document.querySelectorAll(`.step-${currentStep}`).forEach(el => el.classList.add('current-step'));
+
+                // Optimized DOM updates using cached references
+                stepDOMCache[prev].forEach(el => el.classList.remove('current-step'));
+                stepDOMCache[currentStep].forEach(el => el.classList.add('current-step'));
+
                 nextNoteTime += 60 / bpm / 4;
                 currentStep = (currentStep + 1) % totalSteps;
             }
