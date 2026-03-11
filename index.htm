@@ -152,6 +152,12 @@
 
         const presets = [
             {
+                name: "Novo Projeto (Vazio)",
+                description: "Comece uma composição do zero.",
+                bars: 4, bpm: 120,
+                data: {}
+            },
+            {
                 name: "Heavy Metal Core",
                 description: "Ritmo agressivo com bumbo duplo.",
                 bars: 2, bpm: 160,
@@ -235,17 +241,39 @@
 
         function createPresetList() {
             const container = document.getElementById('preset-list');
+            container.innerHTML = '';
             presets.forEach((preset, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = "relative group";
+
                 const card = document.createElement('button');
-                card.className = "preset-card w-full text-left p-3 rounded-xl border border-zinc-800 transition-all duration-200 group";
+                card.className = "preset-card w-full text-left p-3 rounded-xl border border-zinc-800 transition-all duration-200";
                 card.innerHTML = `
-                    <div class="text-[10px] font-black uppercase tracking-tight group-hover:text-red-500 transition-colors">${preset.name}</div>
+                    <div class="text-[10px] font-black uppercase tracking-tight group-hover:text-red-500 transition-colors text-zinc-300">${preset.name}</div>
                     <div class="text-[8px] text-zinc-500 mt-1 leading-tight">${preset.description}</div>
                     <div class="text-[7px] text-red-900 font-bold mt-1 uppercase">${preset.bpm} BPM</div>
                 `;
                 card.onclick = () => loadPreset(index);
-                container.appendChild(card);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = "absolute top-2 right-2 w-5 h-5 flex items-center justify-center bg-zinc-900/80 hover:bg-red-600 text-zinc-500 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all text-[10px] font-bold z-10";
+                deleteBtn.innerHTML = "×";
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deletePreset(index);
+                };
+
+                wrapper.appendChild(card);
+                wrapper.appendChild(deleteBtn);
+                container.appendChild(wrapper);
             });
+        }
+
+        function deletePreset(index) {
+            if (confirm(`Deseja excluir o estilo "${presets[index].name}"?`)) {
+                presets.splice(index, 1);
+                createPresetList();
+            }
         }
 
         function loadPreset(index) {
