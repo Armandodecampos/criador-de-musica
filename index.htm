@@ -23,8 +23,24 @@
         .grid-cell:hover { border-color: #555; background: #222; }
         .grid-cell.active:hover { background: #ef4444; }
         .timeline-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: #444 #080808;
+            scrollbar-width: auto;
+            scrollbar-color: #dc2626 #1a1a1a;
+        }
+        .timeline-scroll::-webkit-scrollbar {
+            height: 12px;
+            width: 8px;
+        }
+        .timeline-scroll::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border-radius: 6px;
+        }
+        .timeline-scroll::-webkit-scrollbar-thumb {
+            background: #dc2626;
+            border-radius: 6px;
+            border: 3px solid #1a1a1a;
+        }
+        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: #ef4444;
         }
         .current-step { background: rgba(255, 255, 255, 0.15); border-left: 1px solid #fff; border-right: 1px solid #fff; }
         .inst-label { width: 140px; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #71717a; flex-shrink: 0; }
@@ -56,9 +72,9 @@
 
         <!-- Main Workspace -->
         <main class="flex-grow flex flex-col gap-6">
-            <div class="amplifier-panel p-6 rounded-2xl border-2 border-zinc-800">
+            <div class="amplifier-panel p-6 rounded-2xl border-2 border-zinc-800 flex flex-col">
                 <!-- Header -->
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 sticky top-0 z-20 bg-[#161616] pb-4 flex-shrink-0">
                     <div>
                         <h1 class="text-2xl font-black italic tracking-tighter text-zinc-300">VOID<span class="text-red-600">SHRED</span> PRO</h1>
                         <p class="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Multi-Genre Creative Station</p>
@@ -66,8 +82,8 @@
                     
                     <div class="flex items-center gap-3 bg-black/40 p-3 rounded-lg border border-zinc-800">
                         <div class="flex flex-col">
-                            <label class="text-[8px] text-zinc-500 uppercase font-bold">Compassos</label>
-                            <input type="number" id="bars-input" value="4" min="1" max="16" class="bg-transparent text-white font-black w-10 outline-none text-sm">
+                            <label class="text-[8px] text-zinc-500 uppercase font-bold">Frames</label>
+                            <input type="number" id="steps-input" value="64" min="1" max="512" class="bg-transparent text-white font-black w-12 outline-none text-sm">
                         </div>
                         <div class="h-8 w-[1px] bg-zinc-800"></div>
                         <div class="flex flex-col">
@@ -81,7 +97,7 @@
                 </div>
 
                 <!-- Sequencer Grid -->
-                <div class="timeline-scroll overflow-x-auto bg-black/80 p-4 rounded-xl border border-zinc-900 mb-6 shadow-inner max-h-[60vh] overflow-y-auto">
+                <div class="timeline-scroll overflow-x-scroll bg-black/80 p-4 rounded-xl border border-zinc-900 mb-6 shadow-inner max-h-[60vh] overflow-y-auto">
                     <div id="sequencer-grid" class="inline-grid gap-y-1">
                         <!-- Rendered by JS -->
                     </div>
@@ -234,7 +250,7 @@
 
         function loadPreset(index) {
             const preset = presets[index];
-            document.getElementById('bars-input').value = preset.bars;
+            document.getElementById('steps-input').value = preset.bars * 16;
             document.getElementById('bpm-input').value = preset.bpm;
             createGrid(); 
             
@@ -266,8 +282,8 @@
 
         function createGrid() {
             const grid = document.getElementById('sequencer-grid');
-            const bars = parseInt(document.getElementById('bars-input').value);
-            totalSteps = bars * 16;
+            const steps = parseInt(document.getElementById('steps-input').value);
+            totalSteps = steps;
             
             instruments.forEach(inst => {
                 const oldData = sequenceData[inst.id] || [];
@@ -513,7 +529,7 @@
             }
         };
 
-        document.getElementById('bars-input').onchange = createGrid;
+        document.getElementById('steps-input').onchange = createGrid;
         document.getElementById('exportBtn').onclick = exportProject;
 
         createPresetList();
